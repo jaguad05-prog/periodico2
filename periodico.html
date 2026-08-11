@@ -150,12 +150,69 @@ function Entrada({onEntrar}){
 
 /* ── BLOQUE DE TEXTO ──────────────────────────────── */
 function BloqueTexto({block,onChange}){
+  const ref=React.useRef(null);
+  const lastHtml=React.useRef(block.content||"");
+
+  React.useEffect(()=>{
+    if(ref.current && ref.current.innerHTML !== (block.content||"")){
+      const sel=window.getSelection();
+      const range=sel&&sel.rangeCount>0?sel.getRangeAt(0):null;
+      let start=0,end=0;
+      if(range&&ref.current.contains(range.startContainer)){
+        const pre=range.cloneRange();
+        pre.selectNodeContents(ref.current);
+        pre.setEnd(range.startContainer,range.startOffset);
+        start=pre.toString().length;
+        end=start+(range.toString().length);
+      }
+      ref.current.innerHTML=block.content||"";
+      // Restore cursor
+      try{
+        const tw=document.createTreeWalker(ref.current,NodeFilter.SHOW_TEXT);
+        let node,pos=0;
+        const setAt=(target)=>{
+          let n,p=0;
+          const w=document.createTreeWalker(ref.current,NodeFilter.SHOW_TEXT);
+          while(n=w.nextNode()){
+            if(p+n.length>=target) return{node:n,offset:target-p};
+            p+=n.length;
+          }
+          return null;
+        };
+        const s=setAt(start),e2=setAt(end);
+        if(s&&e2){const r=document.createRange();r.setStart(s.node,s.offset);r.setEnd(e2.node,e2.offset);sel.removeAllRanges();sel.addRange(r);}
+      }catch{}
+    }
+  },[block.content]);
+
+  const onInput=()=>{
+    const html=ref.current.innerHTML;
+    lastHtml.current=html;
+    onChange(html);
+  };
+
+  const fmt=(cmd)=>{
+    ref.current.focus();
+    document.execCommand(cmd,false,null);
+    onChange(ref.current.innerHTML);
+  };
+
   return(
     <div>
-      <textarea
-        value={block.content||""}
-        onChange={e=>onChange(e.target.value)}
-        style={{width:"100%",minHeight:120,padding:"10px 12px",border:"2px solid #e0e0e0",borderRadius:6,outline:"none",lineHeight:1.7,fontSize:15,fontFamily:"Georgia,serif",background:"#fafafa",resize:"vertical"}}
+      <div style={{display:"flex",gap:5,marginBottom:5}}>
+        <button type="button" onMouseDown={e=>{e.preventDefault();fmt("bold");}}
+          style={{width:30,height:30,border:"1.5px solid #ddd",background:"#fff",cursor:"pointer",fontWeight:"bold",fontSize:13,borderRadius:4}}>N</button>
+        <button type="button" onMouseDown={e=>{e.preventDefault();fmt("italic");}}
+          style={{width:30,height:30,border:"1.5px solid #ddd",background:"#fff",cursor:"pointer",fontStyle:"italic",fontSize:13,borderRadius:4}}>K</button>
+        <button type="button" onMouseDown={e=>{e.preventDefault();fmt("underline");}}
+          style={{width:30,height:30,border:"1.5px solid #ddd",background:"#fff",cursor:"pointer",textDecoration:"underline",fontSize:13,borderRadius:4}}>S</button>
+      </div>
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={onInput}
+        style={{minHeight:120,padding:"10px 12px",border:"2px solid #e0e0e0",borderRadius:6,outline:"none",lineHeight:1.7,fontSize:15,fontFamily:"Georgia,serif",background:"#fafafa"}}
       />
     </div>
   );
@@ -233,61 +290,6 @@ function EditorBloques({blocks,onChange}){
   );
 }
 
-/* ── ENCUADRE DE FOTO ────────────────────────────── */
-function FotoEncuadre({src,position,onChange}){
-  const wrapRef=useRef(null);
-  const dragging=useRef(false);
-  const last=useRef({x:0,y:0});
-  const posRef=useRef(position);
-  const[pos,setPos]=useState(()=>{
-    const p=(position||"50% 50%").split(" ");
-    return{x:parseFloat(p[0]),y:parseFloat(p[1])};
-  });
-  useEffect(()=>{
-    const p=(position||"50% 50%").split(" ");
-    setPos({x:parseFloat(p[0]),y:parseFloat(p[1])});
-    posRef.current=position;
-  },[src]);
-  const down=e=>{
-    e.preventDefault();
-    dragging.current=true;
-    last.current={x:e.clientX||e.touches?.[0]?.clientX,y:e.clientY||e.touches?.[0]?.clientY};
-  };
-  const move=e=>{
-    if(!dragging.current||!wrapRef.current)return;
-    e.preventDefault();
-    const cx=e.clientX||(e.touches?.[0]?.clientX)||last.current.x;
-    const cy=e.clientY||(e.touches?.[0]?.clientY)||last.current.y;
-    const dx=cx-last.current.x;
-    const dy=cy-last.current.y;
-    last.current={x:cx,y:cy};
-    const {width,height}=wrapRef.current.getBoundingClientRect();
-    setPos(prev=>{
-      const nx=Math.max(0,Math.min(100,prev.x-dx/width*100));
-      const ny=Math.max(0,Math.min(100,prev.y-dy/height*100));
-      const ns=`${Math.round(nx)}% ${Math.round(ny)}%`;
-      posRef.current=ns;
-      return{x:nx,y:ny};
-    });
-  };
-  const up=()=>{if(dragging.current){dragging.current=false;onChange(posRef.current);}};
-  return(
-    <div style={{position:"relative",userSelect:"none"}}>
-      <div ref={wrapRef}
-        onMouseDown={down} onMouseMove={move} onMouseUp={up} onMouseLeave={up}
-        onTouchStart={down} onTouchMove={move} onTouchEnd={up}
-        style={{width:"100%",height:180,overflow:"hidden",borderRadius:6,border:"2px solid #c8102e",cursor:"grab",background:"#eee"}}>
-        <img src={src} alt="encuadre" draggable={false}
-          style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:`${pos.x}% ${pos.y}%`,display:"block",pointerEvents:"none"}}/>
-        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-          <div style={{background:"rgba(0,0,0,0.4)",color:"#fff",fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700}}>✋ Arrastra para encuadrar</div>
-        </div>
-      </div>
-      <p style={{fontSize:11,color:"#999",margin:"4px 0 0"}}>Posición: {Math.round(pos.x)}% · {Math.round(pos.y)}%</p>
-    </div>
-  );
-}
-
 /* ── EDITOR DE NOTICIA ────────────────────────────── */
 function EditorNoticia({article,onGuardar,onCancelar}){
   const[form,setForm]=useState({...article,blocks:article.blocks?article.blocks.map(b=>({...b,id:b.id||Date.now()+Math.random()})):[mkT(article.body||"")]});
@@ -312,18 +314,32 @@ function EditorNoticia({article,onGuardar,onCancelar}){
           <label style={lSt}>SUBTÍTULO *</label>
           <textarea value={form.subtitle} onChange={e=>setForm(f=>({...f,subtitle:e.target.value}))} rows={2} style={{...iSt,resize:"vertical"}} placeholder="El subtítulo amplía la información del titular"/>
           <label style={lSt}>FOTO PRINCIPAL</label>
-          <div style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:8}}>
+          <div style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:16}}>
             <div>
               <button onClick={()=>fileRef.current.click()} style={bSec}>📷 {form.image?"Cambiar":"Subir foto"}</button>
               <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={hi}/>
-              {form.image&&form.image!=="[foto-local]"&&<button onClick={()=>setForm(f=>({...f,image:null,imagePosition:"50% 50%"}))} style={{...bSec,marginLeft:8,color:"#c8102e"}}>Quitar</button>}
+              {form.image&&form.image!=="[foto-local]"&&<button onClick={()=>setForm(f=>({...f,image:null}))} style={{...bSec,marginLeft:8,color:"#c8102e"}}>Quitar</button>}
             </div>
+            {form.image&&form.image!=="[foto-local]"&&<img src={form.image} alt="preview" style={{width:160,height:100,objectFit:"cover",borderRadius:6,border:"2px solid #eee"}}/>}
           </div>
           {form.image&&form.image!=="[foto-local]"&&(
-            <div style={{marginBottom:16}}>
-              <label style={{...lSt,marginBottom:6}}>ENCUADRE DE LA FOTO — arrastra para centrar</label>
-              <FotoEncuadre src={form.image} position={form.imagePosition||"50% 50%"} onChange={pos=>setForm(f=>({...f,imagePosition:pos}))}/>
-            </div>
+            <>
+              <label style={lSt}>ENCUADRE DE LA FOTO</label>
+              <div style={{marginBottom:14}}>
+                <div style={{position:"relative",width:"100%",height:160,overflow:"hidden",borderRadius:6,border:"2px solid #eee",cursor:"crosshair",background:"#f0f0f0"}}
+                  onClick={e=>{
+                    const rect=e.currentTarget.getBoundingClientRect();
+                    const x=Math.round(((e.clientX-rect.left)/rect.width)*100);
+                    const y=Math.round(((e.clientY-rect.top)/rect.height)*100);
+                    setForm(f=>({...f,imagePosition:`${x}% ${y}%`}));
+                  }}>
+                  <img src={form.image} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:form.imagePosition||"center",pointerEvents:"none"}}/>
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                    <span style={{background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:11,padding:"3px 8px",borderRadius:4}}>👆 Haz clic donde quieres centrar la foto</span>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
           {form.image&&<><label style={lSt}>PIE DE FOTO</label><input value={form.imageCaption} onChange={e=>setForm(f=>({...f,imageCaption:e.target.value}))} placeholder="Descripción de la imagen" style={iSt}/></>}
           <div style={{background:"#fff8e1",border:"1px solid #ffc107",borderRadius:6,padding:"8px 12px",marginBottom:14,fontSize:12,color:"#795548"}}>
@@ -381,24 +397,19 @@ function LectorNoticia({article,onVolver,onEditar}){
 }
 
 /* ── TARJETA DE PORTADA ───────────────────────────── */
-// fotoADerecha: noticias secundarias con índice 1 y 3 (0-based: i+1 = 1,2,3 -> index 1 y 3)
-function TarjetaPortada({article,index,onClick,onEditar}){
+function TarjetaPortada({article,index,onClick,onEditar,photoRight}){
   const color=COL[article.section]||"#c8102e";
   const isMain=index===0;
   const[hover,setHover]=useState(false);
   const img=article.image&&article.image!=="[foto-local]"?article.image:null;
-  const imgPos=article.imagePosition||"50% 50%";
-  // Noticias 1 y 3 (index 1 y 3) llevan la foto a la derecha
-  const fotoADerecha=!isMain&&(index===1||index===3);
+  const imgStyle={width:90,minHeight:100,objectFit:"cover",flexShrink:0,objectPosition:article.imagePosition||"center"};
   return(
     <div onClick={onClick}
       style={{cursor:"pointer",background:hover?"#fafafa":"#fff",overflow:"hidden",position:"relative",borderBottom:isMain?"none":"1px solid #eee",transition:"background 0.15s"}}
       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}>
       {isMain?(
         <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
-          {img?<div style={{overflow:"hidden",height:340,flexShrink:0}}>
-                <img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:imgPos,display:"block"}}/>
-               </div>
+          {img?<div style={{overflow:"hidden",height:340,flexShrink:0}}><img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",objectPosition:article.imagePosition||"center"}}/></div>
               :<div style={{height:220,flexShrink:0,background:"linear-gradient(135deg,#1a1a1a,#333)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"rgba(255,255,255,0.1)",fontSize:64}}>📷</span></div>}
           <div style={{padding:"12px 16px 10px",flex:1}}>
             <div style={{display:"inline-block",color,fontWeight:900,fontSize:11,letterSpacing:1.5,marginBottom:6,fontFamily:"sans-serif"}}>{article.section}</div>
@@ -408,8 +419,8 @@ function TarjetaPortada({article,index,onClick,onEditar}){
           </div>
         </div>
       ):(
-        <div style={{display:"flex",flexDirection:fotoADerecha?"row-reverse":"row",minHeight:100}}>
-          {img&&<img src={img} alt="" style={{width:90,minHeight:100,objectFit:"cover",objectPosition:imgPos,flexShrink:0}}/>}
+        <div style={{display:"flex",minHeight:100,flexDirection:photoRight?"row-reverse":"row"}}>
+          {img&&<img src={img} alt="" style={imgStyle}/>}
           <div style={{padding:"10px 12px",flex:1}}>
             <div style={{display:"inline-block",background:color,color:"#fff",padding:"1px 6px",fontWeight:900,fontSize:9,letterSpacing:2,marginBottom:5,fontFamily:"sans-serif"}}>{article.section}</div>
             <h3 style={{fontSize:14,fontWeight:800,lineHeight:1.25,color:"#111",margin:"0 0 4px",fontFamily:"Georgia,serif"}}>{article.title}</h3>
@@ -437,6 +448,7 @@ function App(){
   const grupoRef = useRef(null);
   const pollRef  = useRef(null);
   const stRef    = useRef({});
+  const importRef= useRef(null);
 
   useEffect(()=>{stRef.current={articles,paperName};},[articles,paperName]);
   useEffect(()=>()=>{if(pollRef.current)clearInterval(pollRef.current);},[]);
@@ -502,6 +514,138 @@ function App(){
     await push(next,paperName);
   };
 
+  /* ── DESCARGAR EL PERIÓDICO COMO HTML AUTÓNOMO ──── */
+  const descargarPeriodico=()=>{
+    const esc=(s="")=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const cuerpo=(h="")=>String(h).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/\n/g,"<br/>");
+    const foto=(a)=>(a.image&&a.image!=="[foto-local]")?a.image:null;
+    const bloque=(b)=>b.type==="text"
+      ?`<div class="parrafo">${cuerpo(b.content||"")}</div>`
+      :`<div class="tuit"><div class="tuit-user">${esc(b.handle||"@usuario")}</div><p>${esc(b.text||"")}</p>${b.url?`<a class="enlace" href="${esc(b.url)}" target="_blank" rel="noreferrer">Ver tuit original</a>`:""}</div>`;
+    const fecha=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    const marca=(a)=>a.published?"":'<span class="borrador">BORRADOR</span>';
+    const ap=articles[0], resto=articles.slice(1);
+    const apFoto=ap?foto(ap):null;
+
+    const portada=ap?`
+<section class="apertura">
+  <a href="#n${ap.id}">
+    ${apFoto?`<img src="${apFoto}" alt="${esc(ap.imageCaption||"")}" style="object-position:${esc(ap.imagePosition||"center")}"/>`:""}
+    <div class="seccion" style="background:${COL[ap.section]||"#c8102e"}">${esc(ap.section)}</div>
+    <h2>${esc(ap.title)}</h2>
+    <p class="sub">${esc(ap.subtitle)}</p>
+    <div class="firma-corta">${esc(ap.author)}${marca(ap)}</div>
+  </a>
+</section>`:"";
+
+    const sumario=resto.length?`<ul class="sumario">${resto.map(a=>`
+  <li><a href="#n${a.id}">
+    <div class="seccion" style="background:${COL[a.section]||"#c8102e"}">${esc(a.section)}</div>
+    <h3>${esc(a.title)}</h3>
+    <p>${esc(a.subtitle)}</p>
+    <div class="firma-corta">${esc(a.author)}${marca(a)}</div>
+  </a></li>`).join("")}</ul>`:"";
+
+    const piezas=articles.map(a=>{
+      const f=foto(a);
+      return `
+<article id="n${a.id}">
+  <div class="seccion" style="background:${COL[a.section]||"#c8102e"}">${esc(a.section)}</div>
+  <h2>${esc(a.title)}</h2>
+  <p class="sub">${esc(a.subtitle)}</p>
+  <div class="firma">${esc(a.author)} · ${esc(fecha)}${marca(a)}</div>
+  ${f?`<img class="principal" src="${f}" alt="${esc(a.imageCaption||"")}" style="object-position:${esc(a.imagePosition||"center")}"/>`:""}
+  ${a.imageCaption&&f?`<p class="pie">${esc(a.imageCaption)}</p>`:""}
+  ${(a.blocks||[]).map(bloque).join("")}
+  <a class="volver" href="#arriba">Volver a la portada</a>
+</article>`;
+    }).join("");
+
+    const doc=`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>${esc(paperName)} · ${esc(grupoRef.current)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f5f5;color:#111;font-family:sans-serif;padding:24px 16px;scroll-behavior:smooth}
+.hoja{max-width:900px;margin:0 auto;background:#fff;padding:36px 40px;border:1px solid #ddd}
+a{color:inherit;text-decoration:none}
+a:hover h2,a:hover h3{color:#c8102e}
+header.cab{text-align:center;border-bottom:3px solid #c8102e;padding-bottom:14px;margin-bottom:28px}
+h1.cabecera{font-family:Georgia,serif;font-size:clamp(38px,9vw,74px);font-weight:900;letter-spacing:-2px;line-height:1}
+.fecha{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#999;margin-top:8px}
+.seccion{display:inline-block;color:#fff;font-size:10px;font-weight:800;letter-spacing:2px;padding:2px 8px;margin-bottom:8px}
+.apertura img{width:100%;max-height:360px;object-fit:cover;display:block;margin-bottom:14px}
+.apertura h2{font-family:Georgia,serif;font-size:clamp(26px,4vw,36px);font-weight:900;line-height:1.1;margin-bottom:8px}
+.apertura .sub{font-family:Georgia,serif;font-size:17px;color:#444;line-height:1.5}
+.firma-corta{font-size:12px;color:#888;font-weight:700;margin-top:8px}
+ul.sumario{list-style:none;border-top:2px solid #111;margin-top:28px}
+ul.sumario li{border-bottom:1px solid #eee;padding:14px 0}
+ul.sumario h3{font-family:Georgia,serif;font-size:19px;line-height:1.25;margin-bottom:4px}
+ul.sumario p{font-size:13px;color:#666}
+article{border-top:4px solid #111;margin-top:52px;padding-top:22px}
+article h2{font-family:Georgia,serif;font-size:clamp(24px,3.5vw,32px);font-weight:900;line-height:1.15;margin-bottom:10px}
+article .sub{font-family:Georgia,serif;font-size:18px;color:#444;line-height:1.5;border-left:4px solid #c8102e;padding-left:12px;margin-bottom:14px}
+.firma{font-size:12px;color:#666;border-top:1px solid #eee;border-bottom:1px solid #eee;padding:8px 0;margin-bottom:20px}
+article img.principal{width:100%;max-height:420px;object-fit:cover;display:block;margin-bottom:6px}
+.pie{font-size:12px;color:#666;font-style:italic;border-left:2px solid #ccc;padding-left:8px;margin-bottom:20px}
+.parrafo{font-family:Georgia,serif;font-size:17px;line-height:1.8;margin-bottom:16px}
+.tuit{border:1.5px solid #e1e8ed;border-radius:12px;padding:12px 14px;margin:18px 0;max-width:520px}
+.tuit-user{font-weight:700;font-size:14px;margin-bottom:6px}
+.tuit p{font-size:15px;line-height:1.5}
+.enlace{display:inline-block;margin-top:8px;font-size:12px;color:#1da1f2}
+.borrador{background:#ffc107;color:#000;font-size:10px;font-weight:700;padding:2px 6px;margin-left:8px}
+.volver{display:inline-block;margin-top:14px;font-size:12px;color:#c8102e}
+@media print{body{background:#fff;padding:0}.hoja{border:none;max-width:none;padding:0}article{page-break-before:always}.volver{display:none}}
+</style></head>
+<body><div class="hoja" id="arriba">
+<header class="cab"><h1 class="cabecera">${esc(paperName)}</h1><div class="fecha">${esc(fecha)} · ${esc(grupoRef.current)}</div></header>
+${portada}
+${sumario}
+${piezas}
+</div></body></html>`;
+
+    const url=URL.createObjectURL(new Blob([doc],{type:"text/html"}));
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`${grupoRef.current}-${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ── COPIA DE SEGURIDAD (.json) ─────────────────── */
+  const descargarCopia=()=>{
+    const data=JSON.stringify({grupo:grupoRef.current,paperName,articles},null,2);
+    const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`copia-${grupoRef.current}-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const cargarCopia=(e)=>{
+    const f=e.target.files[0];
+    if(!f)return;
+    e.target.value="";
+    const r=new FileReader();
+    r.onload=async ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!data||!Array.isArray(data.articles))throw new Error("el archivo no tiene el formato del periódico");
+        if(!window.confirm(`Vas a sustituir la portada de ${grupoRef.current} por la copia del archivo. Lo que haya ahora se pierde. ¿Sigues?`))return;
+        const pn=data.paperName||"EL DEPORTIVO";
+        stRef.current={articles:data.articles,paperName:pn};
+        setArticles(data.articles);
+        setPaperName(pn);
+        await push(data.articles,pn);
+      }catch(err){
+        window.alert("No se ha podido cargar la copia: "+err.message);
+      }
+    };
+    r.readAsText(f);
+  };
+
   if(!blobId)return <Entrada onEntrar={entrar}/>;
 
   if(leyendo!==null){
@@ -523,6 +667,10 @@ function App(){
               <span style={{fontWeight:700,color:syncColor,fontSize:11}}>{syncLabel}</span>
               {lastSaved&&<span style={{color:"#bbb",fontSize:10}}>{lastSaved.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</span>}
               <span style={{background:"#111",color:"#fff",padding:"2px 10px",borderRadius:20,fontWeight:800,fontSize:11}}>👤 {nombre}</span>
+              <button onClick={descargarPeriodico} style={{background:"#111",border:"1px solid #111",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#fff",fontWeight:700}}>Descargar periódico</button>
+              <button onClick={descargarCopia} style={{background:"none",border:"1px solid #ddd",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#666"}}>Descargar copia</button>
+              <button onClick={()=>importRef.current.click()} style={{background:"none",border:"1px solid #ddd",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#666"}}>Cargar copia</button>
+              <input ref={importRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={cargarCopia}/>
               <button onClick={()=>{if(pollRef.current)clearInterval(pollRef.current);setBlobId(null);}} style={{background:"none",border:"1px solid #ddd",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#999"}}>Salir</button>
             </div>
           </div>
@@ -549,14 +697,14 @@ function App(){
             <div>
               {articles.slice(1).map((art,i)=>(
                 <div key={art.id} style={{borderBottom:i<2?"1px solid #e0e0e0":"none"}}>
-                  <TarjetaPortada article={art} index={i+1} onClick={()=>setLeyendo(art.id)} onEditar={()=>setEditando(art)}/>
+                  <TarjetaPortada article={art} index={i+1} photoRight={i===0||i===2} onClick={()=>setLeyendo(art.id)} onEditar={()=>setEditando(art)}/>
                 </div>
               ))}
             </div>
           </div>
         )}
         <div style={{background:"#e8f4fd",border:"1px solid #90caf9",borderRadius:8,padding:"12px 18px",fontSize:13,color:"#0d47a1"}}>
-          <strong>🔄 SINCRONIZACIÓN:</strong> Los cambios de texto y tuits se guardan automáticamente. Los compañeros los ven en ~5 segundos. Las fotos solo se ven en el ordenador que las subió.
+          <strong>🔄 SINCRONIZACIÓN:</strong> Los cambios de texto y tuits se guardan automáticamente. Los compañeros los ven en ~5 segundos. Las fotos solo se ven en el ordenador que las subió. Al terminar la clase, descarga el periódico.
         </div>
       </main>
 
