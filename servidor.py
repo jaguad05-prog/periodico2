@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import json, os
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 DATOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos.json")
 BASE  = os.path.dirname(os.path.abspath(__file__))
@@ -79,4 +79,4 @@ if __name__ == "__main__":
     cargar()
     port = int(os.environ.get('PORT', 8000))
     print(f'Servidor Periodico activo en puerto {port}')
-    HTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
