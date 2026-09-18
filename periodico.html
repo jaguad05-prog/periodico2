@@ -122,6 +122,8 @@ function encogerFoto(file,max=1000,calidad=0.62){
   });
 }
 
+const MINIMO = 500;   // palabras mínimas del cuerpo para poder publicar
+
 /* Cuenta las palabras del cuerpo (párrafos y ladillos) */
 function contarPalabras(blocks){
   const txt=(blocks||[])
@@ -160,7 +162,7 @@ function Entrada({onEntrar}){
       <div style={{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:460,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}>
         <div style={{fontSize:52,marginBottom:8}}>🗞️</div>
         <h1 style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:"#111",marginBottom:4}}>EL DEPORTIVO</h1>
-        <p style={{color:"#999",fontSize:12,letterSpacing:2,textTransform:"uppercase",marginBottom:28}}>Periódico Digital de Aula</p>
+        <p style={{color:"#999",fontSize:12,letterSpacing:2,textTransform:"uppercase",marginBottom:28}}>Periódico Digital de Aula · v2</p>
 
         {!base&&(
           <div style={{background:"#fff3cd",border:"1.5px solid #ffc107",borderRadius:8,padding:"12px 14px",marginBottom:20,textAlign:"left"}}>
@@ -381,10 +383,8 @@ function EditorBloques({blocks,onChange}){
               {bl.type==="tweet"&&<BloqueTuit block={bl} onChange={v=>up(i,v)}/>}
             </div>
           </div>
-          <div style={{display:"flex",gap:8,justifyContent:"center",padding:"5px 0 8px",borderBottom:"1px dashed #e0e0e0",marginBottom:6,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8,justifyContent:"center",padding:"5px 0 8px",borderBottom:"1px dashed #e0e0e0",marginBottom:6}}>
             <button onClick={()=>ins(i,mkT())} style={{...addBtn,background:"#f5f5f5",color:"#555",borderColor:"#ccc"}}>+ Párrafo ↓</button>
-            <button onClick={()=>ins(i,mkL())} style={{...addBtn,background:"#f3f3f3",color:"#111",borderColor:"#111"}}>▌ Ladillo ↓</button>
-            <button onClick={()=>ins(i,mkTw())} style={{...addBtn,background:"#e8f4fd",color:"#1da1f2",borderColor:"#1da1f2"}}>🐦 Tuit ↓</button>
           </div>
         </div>
       ))}
@@ -410,6 +410,7 @@ function EditorNoticia({article,onGuardar,onCancelar}){
     }finally{setSubiendo(false);}
   };
   const palabras=contarPalabras(form.blocks);
+  const llega=palabras>=MINIMO;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:1000,overflowY:"auto",padding:"20px 0"}}>
       <div style={{maxWidth:760,margin:"0 auto",background:"#fff",borderRadius:12,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}>
@@ -462,17 +463,24 @@ function EditorNoticia({article,onGuardar,onCancelar}){
           </div>
           <div style={{display:"flex",alignItems:"baseline",gap:10,marginTop:4}}>
             <label style={{...lSt,marginBottom:0}}>CUERPO DE LA NOTICIA</label>
-            <span style={{marginLeft:"auto",fontSize:12,fontWeight:800,color:palabras>0?"#111":"#bbb",background:"#f0f0f0",padding:"3px 10px",borderRadius:20}}>{palabras} {palabras===1?"palabra":"palabras"}</span>
+            <span style={{marginLeft:"auto",fontSize:12,fontWeight:800,color:llega?"#1b5e20":"#a13b2a",background:llega?"#e8f5e9":"#fdecea",padding:"3px 10px",borderRadius:20}}>{palabras} de {MINIMO} palabras{llega?" ✓":""}</span>
           </div>
           <div style={{height:6}}/>
           <div style={{background:"#f8f8f8",border:"2px solid #e8e8e8",borderRadius:8,padding:14,marginBottom:16}}>
             <p style={{fontSize:12,color:"#888",margin:"0 0 12px"}}>Escribe de corrido y luego pon el cursor donde quieras el ladillo o el tuit, pulsa el botón de la barra y el párrafo se parte solo · ▲▼ para reordenar · ✕ para eliminar</p>
             <EditorBloques blocks={form.blocks} onChange={b=>setForm(f=>({...f,blocks:b}))}/>
           </div>
-          <div style={{display:"flex",gap:12,justifyContent:"flex-end"}}>
+          {!llega&&(
+            <p style={{background:"#fdecea",border:"1px solid #f0b8ae",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12.5,color:"#8a2f20"}}>
+              El cuerpo tiene que llegar a {MINIMO} palabras para poder publicar, te faltan {MINIMO-palabras}. Mientras tanto guarda la noticia como borrador.
+            </p>
+          )}
+          <div style={{display:"flex",gap:12,justifyContent:"flex-end",flexWrap:"wrap"}}>
             <button onClick={onCancelar} style={bSec}>Cancelar</button>
             <button onClick={()=>onGuardar({...form,published:false})} style={bSec}>💾 Borrador</button>
-            <button onClick={()=>onGuardar({...form,published:true})} style={bPri}>✅ Publicar</button>
+            <button onClick={()=>llega&&onGuardar({...form,published:true})} disabled={!llega}
+              title={llega?"":"Te faltan "+(MINIMO-palabras)+" palabras para poder publicar"}
+              style={{...bPri,opacity:llega?1:.45,cursor:llega?"pointer":"not-allowed"}}>✅ Publicar</button>
           </div>
         </div>
       </div>
