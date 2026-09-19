@@ -28,6 +28,17 @@ const mkTw=()=>({id:Date.now()+Math.random(),type:"tweet",handle:"",text:"",url:
 const mkL=(c="")=>({id:Date.now()+Math.random(),type:"ladillo",content:c});
 const mkF=()=>({id:Date.now()+Math.random(),type:"foto",data:null,pie:"",rev:0,hasData:false});
 const mkBloque=(tipo)=>tipo==="ladillo"?mkL():tipo==="tweet"?mkTw():tipo==="foto"?mkF():mkT();
+const nuevaPieza=(id,tipo)=>({
+  id,
+  tipo:tipo==="opinion"?"opinion":"noticia",
+  section:"FÚTBOL",
+  title:tipo==="opinion"?"Título de tu columna de opinión":"Titular de la noticia nueva",
+  subtitle:tipo==="opinion"?"":"Subtítulo de la noticia nueva",
+  author:"Redacción",
+  image:null,imageCaption:"",imagePosition:"center",
+  blocks:[mkT(tipo==="opinion"?"Escribe aquí tu opinión.":"Escribe aquí el cuerpo de la noticia.")],
+  published:false
+});
 const DEF=()=>[
   {id:1,section:"FÚTBOL",    title:"Escribe aquí el titular de tu primera noticia",  subtitle:"El subtítulo amplía la información del titular con más detalle",author:"Redacción",image:null,imageCaption:"",blocks:[mkT("Escribe el cuerpo de la noticia aquí. Selecciona texto y usa los botones N K S para negrita, cursiva o subrayado.\n\nPuedes añadir todos los párrafos que necesites.")],published:false},
   {id:2,section:"BALONCESTO",title:"Titular de la segunda noticia deportiva",         subtitle:"Subtítulo con información complementaria sobre la noticia",       author:"Redacción",image:null,imageCaption:"",blocks:[mkT("Cuerpo de la segunda noticia.")],published:false},
@@ -171,7 +182,7 @@ function Entrada({onEntrar}){
       <div style={{background:"#fff",borderRadius:16,padding:"40px 36px",maxWidth:460,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}>
         <div style={{fontSize:52,marginBottom:8}}>🗞️</div>
         <h1 style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:"#111",marginBottom:4}}>EL DEPORTIVO</h1>
-        <p style={{color:"#999",fontSize:12,letterSpacing:2,textTransform:"uppercase",marginBottom:28}}>Periódico Digital de Aula · v3</p>
+        <p style={{color:"#999",fontSize:12,letterSpacing:2,textTransform:"uppercase",marginBottom:28}}>Periódico Digital de Aula · v4</p>
 
         {!base&&(
           <div style={{background:"#fff3cd",border:"1.5px solid #ffc107",borderRadius:8,padding:"12px 14px",marginBottom:20,textAlign:"left"}}>
@@ -207,7 +218,7 @@ function Entrada({onEntrar}){
 }
 
 /* ── BLOQUE DE TEXTO ──────────────────────────────── */
-function BloqueTexto({block,onChange,onPartir}){
+function BloqueTexto({block,onChange,onPartir,sinFoto}){
   const ref=React.useRef(null);
   const lastHtml=React.useRef(block.content||"");
 
@@ -286,8 +297,8 @@ function BloqueTexto({block,onChange,onPartir}){
               style={{height:30,padding:"0 10px",border:"1.5px solid #111",background:"#f3f3f3",color:"#111",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:4}}>▌ Ladillo aquí</button>
             <button type="button" title="Pon el cursor donde quieras y pulsa aquí" onMouseDown={e=>{e.preventDefault();partir("tweet");}}
               style={{height:30,padding:"0 10px",border:"1.5px solid #1da1f2",background:"#e8f4fd",color:"#1077b5",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:4}}>🐦 Tuit aquí</button>
-            <button type="button" title="Pon el cursor donde quieras y pulsa aquí" onMouseDown={e=>{e.preventDefault();partir("foto");}}
-              style={{height:30,padding:"0 10px",border:"1.5px solid #2e7d32",background:"#e8f5e9",color:"#2e7d32",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:4}}>📷 Foto aquí</button>
+            {!sinFoto&&<button type="button" title="Pon el cursor donde quieras y pulsa aquí" onMouseDown={e=>{e.preventDefault();partir("foto");}}
+              style={{height:30,padding:"0 10px",border:"1.5px solid #2e7d32",background:"#e8f5e9",color:"#2e7d32",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:4}}>📷 Foto aquí</button>}
           </div>
         )}
       </div>
@@ -410,7 +421,7 @@ function TarjetaTuit({tweet}){
 }
 
 /* ── EDITOR DE BLOQUES ────────────────────────────── */
-function EditorBloques({blocks,onChange}){
+function EditorBloques({blocks,onChange,sinFoto}){
   const mv=(i,d)=>{const b=[...blocks];const j=i+d;if(j<0||j>=b.length)return;[b[i],b[j]]=[b[j],b[i]];onChange(b);};
   const rm=(i)=>onChange(blocks.filter((_,x)=>x!==i));
   const up=(i,v)=>onChange(blocks.map((b,x)=>x===i?v:b));
@@ -438,7 +449,7 @@ function EditorBloques({blocks,onChange}){
               <button onClick={()=>rm(i)} style={{...ctrlBtn,background:"#fee",color:"#c8102e",borderColor:"#fcc"}}>✕</button>
             </div>
             <div style={{flex:1}}>
-              {bl.type==="text"&&<BloqueTexto block={bl} onChange={v=>up(i,{...bl,content:v})} onPartir={(a,d,t)=>partir(i,a,d,t)}/>}
+              {bl.type==="text"&&<BloqueTexto block={bl} onChange={v=>up(i,{...bl,content:v})} onPartir={(a,d,t)=>partir(i,a,d,t)} sinFoto={sinFoto}/>}
               {bl.type==="ladillo"&&<BloqueLadillo block={bl} onChange={v=>up(i,v)}/>}
               {bl.type==="tweet"&&<BloqueTuit block={bl} onChange={v=>up(i,v)}/>}
               {bl.type==="foto"&&<BloqueFoto block={bl} onChange={v=>up(i,v)}/>}
@@ -480,6 +491,16 @@ function EditorNoticia({article,onGuardar,onCancelar}){
           <button onClick={onCancelar} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",cursor:"pointer",fontSize:20,width:32,height:32,borderRadius:"50%"}}>✕</button>
         </div>
         <div style={{padding:24}}>
+          <label style={lSt}>TIPO DE PIEZA</label>
+          <div style={{display:"flex",gap:10,marginBottom:14}}>
+            {[["noticia","📰 Noticia"],["opinion","🖊️ Opinión"]].map(([t,txt])=>(
+              <button key={t} onClick={()=>setForm(f=>({...f,tipo:t}))}
+                style={{flex:1,padding:"9px 12px",borderRadius:6,cursor:"pointer",fontWeight:800,fontSize:13,
+                  border:(form.tipo==="opinion"?t==="opinion":t==="noticia")?"2px solid #c8102e":"2px solid #ddd",
+                  background:(form.tipo==="opinion"?t==="opinion":t==="noticia")?"#fdecea":"#fff",
+                  color:(form.tipo==="opinion"?t==="opinion":t==="noticia")?"#c8102e":"#666"}}>{txt}</button>
+            ))}
+          </div>
           <label style={lSt}>SECCIÓN</label>
           <select value={form.section} onChange={e=>setForm(f=>({...f,section:e.target.value}))} style={iSt}>
             {SEC.map(s=><option key={s}>{s}</option>)}
@@ -490,7 +511,7 @@ function EditorNoticia({article,onGuardar,onCancelar}){
           <textarea value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} rows={2} style={{...iSt,resize:"vertical",fontWeight:700,fontSize:17}} placeholder="El titular debe ser impactante y directo"/>
           <label style={lSt}>SUBTÍTULO *</label>
           <textarea value={form.subtitle} onChange={e=>setForm(f=>({...f,subtitle:e.target.value}))} rows={2} style={{...iSt,resize:"vertical"}} placeholder="El subtítulo amplía la información del titular"/>
-          <label style={lSt}>FOTO PRINCIPAL</label>
+          <label style={lSt}>{form.tipo==="opinion"?"FOTO DEL AUTOR (sale redonda en la portada)":"FOTO PRINCIPAL"}</label>
           <div style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:16}}>
             <div>
               <button onClick={()=>fileRef.current.click()} disabled={subiendo} style={{...bSec,opacity:subiendo?0.5:1}}>📷 {subiendo?"Preparando...":(form.image?"Cambiar":"Subir foto")}</button>
@@ -529,7 +550,7 @@ function EditorNoticia({article,onGuardar,onCancelar}){
           <div style={{height:6}}/>
           <div style={{background:"#f8f8f8",border:"2px solid #e8e8e8",borderRadius:8,padding:14,marginBottom:16}}>
             <p style={{fontSize:12,color:"#888",margin:"0 0 12px"}}>Escribe de corrido y luego pon el cursor donde quieras el ladillo o el tuit, pulsa el botón de la barra y el párrafo se parte solo · ▲▼ para reordenar · ✕ para eliminar</p>
-            <EditorBloques blocks={form.blocks} onChange={b=>setForm(f=>({...f,blocks:b}))}/>
+            <EditorBloques blocks={form.blocks} onChange={b=>setForm(f=>({...f,blocks:b}))} sinFoto={form.tipo==="opinion"}/>
           </div>
           {!llega&&(
             <p style={{background:"#fdecea",border:"1px solid #f0b8ae",borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12.5,color:"#8a2f20"}}>
@@ -554,7 +575,8 @@ function LectorNoticia({article,onVolver,onEditar}){
   const color=COL[article.section]||"#c8102e";
   const now=new Date().toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"});
   const blocks=article.blocks||[mkT(article.body||"")];
-  const img=article.image||null;
+  const esOpinion=article.tipo==="opinion";
+  const img=esOpinion?null:(article.image||null);
   const palabras=contarPalabras(blocks);
   return(
     <div style={{minHeight:"100vh",background:"#fff"}}>
@@ -563,17 +585,17 @@ function LectorNoticia({article,onVolver,onEditar}){
         <button onClick={onEditar} style={{marginLeft:"auto",background:"#c8102e",border:"none",color:"#fff",cursor:"pointer",padding:"6px 16px",borderRadius:4,fontWeight:700,fontSize:13}}>✏️ Editar</button>
       </div>
       <div style={{maxWidth:780,margin:"0 auto",padding:"32px 24px"}}>
-        <div style={{display:"inline-block",background:color,color:"#fff",padding:"3px 10px",fontWeight:900,fontSize:11,letterSpacing:2,marginBottom:16,fontFamily:"sans-serif"}}>{article.section}</div>
-        <h1 style={{fontSize:"clamp(24px,4vw,38px)",fontWeight:900,lineHeight:1.15,color:"#111",margin:"0 0 12px",fontFamily:"Georgia,serif"}}>{article.title}</h1>
-        <p style={{fontSize:19,color:"#444",lineHeight:1.5,margin:"0 0 20px",fontFamily:"Georgia,serif",borderLeft:`4px solid ${color}`,paddingLeft:14}}>{article.subtitle}</p>
+        <div style={{display:"inline-block",background:esOpinion?"#1b2a4a":color,color:"#fff",padding:"3px 10px",fontWeight:900,fontSize:11,letterSpacing:2,marginBottom:16,fontFamily:"sans-serif"}}>{esOpinion?"OPINIÓN":article.section}</div>
+        <h1 style={{fontSize:"clamp(24px,4vw,38px)",fontWeight:esOpinion?700:900,fontStyle:esOpinion?"italic":"normal",lineHeight:1.15,color:esOpinion?"#1b2a4a":"#111",margin:"0 0 12px",fontFamily:"Georgia,serif"}}>{article.title}</h1>
+        {article.subtitle&&<p style={{fontSize:19,color:"#444",lineHeight:1.5,margin:"0 0 20px",fontFamily:"Georgia,serif",borderLeft:`4px solid ${esOpinion?"#1b2a4a":color}`,paddingLeft:14}}>{article.subtitle}</p>}
         <div style={{display:"flex",gap:16,alignItems:"center",borderTop:"1px solid #eee",borderBottom:"1px solid #eee",padding:"10px 0",marginBottom:24,fontSize:13,color:"#666"}}>
-          <span style={{fontWeight:700,color:"#111"}}>{article.author}</span>
+          <span style={{fontWeight:700,color:esOpinion?"#c8102e":"#111"}}>{article.author}</span>
           <span>·</span><span>{now}</span>
           <span>·</span><span>{palabras} palabras</span>
           {!article.published&&<span style={{marginLeft:"auto",background:"#ffc107",color:"#000",padding:"2px 8px",borderRadius:4,fontWeight:700,fontSize:11}}>BORRADOR</span>}
         </div>
         {img&&<div style={{marginBottom:28}}><img src={img} alt={article.imageCaption} style={{width:"100%",maxHeight:440,objectFit:"cover",display:"block"}}/>{article.imageCaption&&<p style={{fontSize:12,color:"#666",margin:"6px 0 0",fontStyle:"italic",borderLeft:"2px solid #ccc",paddingLeft:8}}>{article.imageCaption}</p>}</div>}
-        {article.hasImage&&!img&&<div style={{background:"#f5f5f5",height:160,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:28,borderRadius:4}}><span style={{color:"#bbb",fontSize:13}}>📷 Cargando la foto del compañero...</span></div>}
+        {!esOpinion&&article.hasImage&&!img&&<div style={{background:"#f5f5f5",height:160,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:28,borderRadius:4}}><span style={{color:"#bbb",fontSize:13}}>📷 Cargando la foto del compañero...</span></div>}
         {blocks.map(b=>(
           <div key={b.id}>
             {b.type==="text"&&<div style={{fontSize:17,lineHeight:1.8,color:"#222",fontFamily:"Georgia,serif",marginBottom:16}} dangerouslySetInnerHTML={{__html:(b.content||"").replace(/\n/g,"<br/>")}}/>}
@@ -588,9 +610,10 @@ function LectorNoticia({article,onVolver,onEditar}){
 }
 
 /* ── TARJETA DE PORTADA ───────────────────────────── */
-function TarjetaPortada({article,index,onClick,onEditar,photoRight,onPrincipal,onMover,esPrimera,esUltima}){
+function TarjetaPortada({article,index,onClick,onEditar,photoRight,onPrincipal,onMover,onBorrar,esPrimera,esUltima}){
   const color=COL[article.section]||"#c8102e";
   const isMain=index===0;
+  const esOpinion=article.tipo==="opinion";
   const[hover,setHover]=useState(false);
   const img=article.image||null;
   const imgStyle={width:90,minHeight:100,objectFit:"cover",flexShrink:0,objectPosition:article.imagePosition||"center"};
@@ -598,7 +621,16 @@ function TarjetaPortada({article,index,onClick,onEditar,photoRight,onPrincipal,o
     <div onClick={onClick}
       style={{cursor:"pointer",background:hover?"#fafafa":"#fff",overflow:"hidden",position:"relative",borderBottom:isMain?"none":"1px solid #eee",transition:"background 0.15s"}}
       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}>
-      {isMain?(
+      {esOpinion?(
+        <div style={{background:"#e9edf2",padding:isMain?"38px 28px":"20px 14px",textAlign:"center",height:"100%"}}>
+          {article.image
+            ?<img src={article.image} alt="" style={{width:isMain?160:76,height:isMain?160:76,borderRadius:"50%",objectFit:"cover",objectPosition:article.imagePosition||"center",display:"block",margin:isMain?"0 auto 26px":"0 auto 12px"}}/>
+            :<div style={{width:isMain?160:76,height:isMain?160:76,borderRadius:"50%",background:"#cfd6de",display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMain?40:20,margin:isMain?"0 auto 26px":"0 auto 12px"}}>🖊️</div>}
+          <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontWeight:700,color:"#1b2a4a",fontSize:isMain?"clamp(21px,2.6vw,30px)":15,lineHeight:1.3,margin:isMain?"0 0 20px":"0 0 10px"}}>{article.title}</h2>
+          <div style={{color:"#c8102e",fontWeight:800,fontSize:isMain?15:12}}>{article.author}</div>
+          {!article.published&&<div><span style={{marginTop:10,display:"inline-block",background:"#ffc107",color:"#000",padding:"1px 6px",fontSize:9,fontWeight:700}}>BORRADOR</span></div>}
+        </div>
+      ):isMain?(
         <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
           {img?<div style={{overflow:"hidden",height:340,flexShrink:0}}><img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",objectPosition:article.imagePosition||"center"}}/></div>
               :<div style={{height:220,flexShrink:0,background:"linear-gradient(135deg,#1a1a1a,#333)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"rgba(255,255,255,0.1)",fontSize:64}}>📷</span></div>}
@@ -629,6 +661,8 @@ function TarjetaPortada({article,index,onClick,onEditar,photoRight,onPrincipal,o
           {onPrincipal&&!isMain&&<button title="Poner esta noticia como la grande" onClick={e=>{e.stopPropagation();onPrincipal();}}
             style={portadaBtn}>★ PORTADA</button>}
           <button onClick={e=>{e.stopPropagation();onEditar();}} style={portadaBtn}>✏️ EDITAR</button>
+          {onBorrar&&<button title="Eliminar esta pieza" onClick={e=>{e.stopPropagation();onBorrar();}}
+            style={{...portadaBtn,background:"rgba(200,16,46,0.9)"}}>🗑</button>}
         </div>
       )}
     </div>
@@ -808,6 +842,16 @@ function App(){
     [lista[i],lista[j]]=[lista[j],lista[i]];
     reordenar(lista);
   };
+  const anadirPieza=(tipo)=>{
+    const ids=articles.map(a=>Number(a.id)||0);
+    const id=(ids.length?Math.max(...ids):0)+1;
+    reordenar([...articles,nuevaPieza(id,tipo)]);
+  };
+  const borrarPieza=(id)=>{
+    const a=articles.find(x=>x.id===id);
+    if(!window.confirm("Vas a eliminar «"+((a&&a.title)||"esta pieza")+"» para todo el grupo. ¿Sigues?"))return;
+    reordenar(articles.filter(x=>x.id!==id));
+  };
   const hacerPrincipal=(id)=>{
     const i=articles.findIndex(a=>a.id===id);
     if(i<=0)return;
@@ -832,10 +876,18 @@ function App(){
     };
     const fecha=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
     const marca=(a)=>a.published?"":'<span class="borrador">BORRADOR</span>';
+    const esOp=(a)=>a.tipo==="opinion";
     const ap=articles[0], resto=articles.slice(1);
     const apFoto=ap?foto(ap):null;
 
-    const portada=ap?`
+    const portada=ap?(esOp(ap)?`
+<section class="apertura opinion">
+  <a href="#n${ap.id}">
+    ${apFoto?`<img class="retrato" src="${apFoto}" alt=""/>`:""}
+    <h2 class="tituloOpinion">${esc(ap.title)}</h2>
+    <div class="firmaOpinion">${esc(ap.author)}${marca(ap)}</div>
+  </a>
+</section>`:`
 <section class="apertura">
   <a href="#n${ap.id}">
     ${apFoto?`<img src="${apFoto}" alt="${esc(ap.imageCaption||"")}" style="object-position:${esc(ap.imagePosition||"center")}"/>`:""}
@@ -844,9 +896,14 @@ function App(){
     <p class="sub">${esc(ap.subtitle)}</p>
     <div class="firma-corta">${esc(ap.author)}${marca(ap)}</div>
   </a>
-</section>`:"";
+</section>`):"";
 
-    const sumario=resto.length?`<ul class="sumario">${resto.map(a=>`
+    const sumario=resto.length?`<ul class="sumario">${resto.map(a=>esOp(a)?`
+  <li class="liOpinion"><a href="#n${a.id}">
+    ${a.image?`<img class="retratoMini" src="${a.image}" alt=""/>`:""}
+    <h3 class="tituloOpinion">${esc(a.title)}</h3>
+    <div class="firmaOpinion">${esc(a.author)}${marca(a)}</div>
+  </a></li>`:`
   <li><a href="#n${a.id}">
     <div class="seccion" style="background:${COL[a.section]||"#c8102e"}">${esc(a.section)}</div>
     <h3>${esc(a.title)}</h3>
@@ -855,12 +912,12 @@ function App(){
   </a></li>`).join("")}</ul>`:"";
 
     const piezas=articles.map(a=>{
-      const f=foto(a);
+      const f=esOp(a)?null:foto(a);
       return `
-<article id="n${a.id}">
-  <div class="seccion" style="background:${COL[a.section]||"#c8102e"}">${esc(a.section)}</div>
-  <h2>${esc(a.title)}</h2>
-  <p class="sub">${esc(a.subtitle)}</p>
+<article id="n${a.id}"${esOp(a)?' class="opinion"':""}>
+  <div class="seccion" style="background:${esOp(a)?"#1b2a4a":(COL[a.section]||"#c8102e")}">${esOp(a)?"OPINIÓN":esc(a.section)}</div>
+  <h2${esOp(a)?' class="tituloOpinion"':""}>${esc(a.title)}</h2>
+  ${a.subtitle?`<p class="sub">${esc(a.subtitle)}</p>`:""}
   <div class="firma">${esc(a.author)} · ${esc(fecha)}${marca(a)}</div>
   ${f?`<img class="principal" src="${f}" alt="${esc(a.imageCaption||"")}" style="object-position:${esc(a.imagePosition||"center")}"/>`:""}
   ${a.imageCaption&&f?`<p class="pie">${esc(a.imageCaption)}</p>`:""}
@@ -902,6 +959,12 @@ h3.ladillo{font-size:20px;font-weight:800;line-height:1.25;margin:26px 0 10px;pa
 figure.fotoCuerpo{margin:22px 0}
 figure.fotoCuerpo img{width:100%;max-height:420px;object-fit:cover;display:block}
 figure.fotoCuerpo figcaption{font-size:12px;color:#666;font-style:italic;border-left:2px solid #ccc;padding-left:8px;margin-top:6px}
+.apertura.opinion{background:#e9edf2;padding:34px 24px;text-align:center}
+.apertura.opinion img.retrato{width:160px;height:160px;border-radius:50%;object-fit:cover;margin:0 auto 24px;display:block;max-height:none}
+li.liOpinion{background:#e9edf2;text-align:center;padding:18px 12px}
+img.retratoMini{width:78px;height:78px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block}
+.tituloOpinion{font-family:Georgia,serif;font-style:italic;color:#1b2a4a;font-weight:700}
+.firmaOpinion{color:#c8102e;font-weight:800;font-size:13px;margin-top:8px}
 .tuit{border:1.5px solid #e1e8ed;border-radius:12px;padding:12px 14px;margin:18px 0;max-width:520px}
 .tuit-user{font-weight:700;font-size:14px;margin-bottom:6px}
 .tuit p{font-size:15px;line-height:1.5}
@@ -979,6 +1042,8 @@ ${piezas}
               <span style={{fontWeight:700,color:syncColor,fontSize:11}}>{syncLabel}</span>
               {lastSaved&&<span style={{color:"#bbb",fontSize:10}}>{lastSaved.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</span>}
               <span style={{background:"#111",color:"#fff",padding:"2px 10px",borderRadius:20,fontWeight:800,fontSize:11}}>👤 {nombre}</span>
+              <button onClick={()=>anadirPieza("noticia")} style={{background:"#c8102e",border:"1px solid #c8102e",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#fff",fontWeight:700}}>➕ Noticia</button>
+              <button onClick={()=>anadirPieza("opinion")} style={{background:"#1b2a4a",border:"1px solid #1b2a4a",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#fff",fontWeight:700}}>➕ Opinión</button>
               <button onClick={descargarPeriodico} style={{background:"#111",border:"1px solid #111",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#fff",fontWeight:700}}>Descargar periódico</button>
               <button onClick={descargarCopia} style={{background:"none",border:"1px solid #ddd",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#666"}}>Descargar copia</button>
               <button onClick={()=>importRef.current.click()} style={{background:"none",border:"1px solid #ddd",cursor:"pointer",fontSize:10,padding:"2px 8px",borderRadius:4,color:"#666"}}>Cargar copia</button>
@@ -1005,13 +1070,15 @@ ${piezas}
           <div style={{display:"grid",gridTemplateColumns:"4fr 220px",background:"#fff",border:"1px solid #e0e0e0",marginBottom:20,minHeight:420}}>
             <div style={{borderRight:"1px solid #e0e0e0"}}>
               <TarjetaPortada article={articles[0]} index={0} onClick={()=>setLeyendo(articles[0].id)} onEditar={()=>setEditando(articles[0])}
-                onMover={d=>moverArticulo(articles[0].id,d)} esPrimera={true} esUltima={articles.length<2}/>
+                onMover={d=>moverArticulo(articles[0].id,d)} onBorrar={articles.length>1?()=>borrarPieza(articles[0].id):null}
+                esPrimera={true} esUltima={articles.length<2}/>
             </div>
             <div>
               {articles.slice(1).map((art,i)=>(
-                <div key={art.id} style={{borderBottom:i<2?"1px solid #e0e0e0":"none"}}>
+                <div key={art.id} style={{borderBottom:i<articles.length-2?"1px solid #e0e0e0":"none"}}>
                   <TarjetaPortada article={art} index={i+1} photoRight={i===0||i===2} onClick={()=>setLeyendo(art.id)} onEditar={()=>setEditando(art)}
                     onMover={d=>moverArticulo(art.id,d)} onPrincipal={()=>hacerPrincipal(art.id)}
+                    onBorrar={()=>borrarPieza(art.id)}
                     esPrimera={false} esUltima={i===articles.length-2}/>
                 </div>
               ))}
@@ -1019,7 +1086,7 @@ ${piezas}
           </div>
         )}
         <div style={{background:"#e8f4fd",border:"1px solid #90caf9",borderRadius:8,padding:"12px 18px",fontSize:13,color:"#0d47a1"}}>
-          <strong>🔀 ORDEN:</strong> Pasa el ratón por encima de una noticia de la portada y usa ▲▼ para moverla, o ★ PORTADA para ponerla de grande.<br/>
+          <strong>🔀 PORTADA:</strong> Pasa el ratón por encima de una pieza y usa ▲▼ para moverla, ★ PORTADA para ponerla de grande y 🗑 para eliminarla. Arriba tienes ➕ Noticia y ➕ Opinión para añadir las que quieras.<br/>
           <strong>🔄 SINCRONIZACIÓN:</strong> Los textos, los tuits y las fotos se guardan solos y los compañeros los ven en unos segundos. Al terminar la clase, pulsa «Descargar periódico» y «Descargar copia».
         </div>
       </main>
